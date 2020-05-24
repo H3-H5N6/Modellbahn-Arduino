@@ -1,18 +1,32 @@
+/**
+ * Ansteuerung eines Ausfahrtsignal mit den Signalbegriffen Hp 0, Hp 1, Hp 2 und Hp 0 + Sh1.
+ * Eine Beschreibung der Signalbilder kann man z.B. unter
+ *   https://de.wikipedia.org/wiki/H/V-Signalsystem
+ * finden.
+ *
+ * Die LED werden direkt an den Arduino über eine Vorwiderstand angeschlossen.
+ * Die Anode der LEDs werden an +V angeschlossen.
+ *
+ * Die Makros LED_ON und LED_OFF dienen der besseren Lesbarkeit.
+ * Eine 0 schaltet die LED an und eine 1 die LED aus.
+ *
+ * Getest wurde die Software auf einem Arduino Nano 3.1
+ */
 #include <Arduino.h>
 
-#define KEY_HP0 3
-#define KEY_HP1 4
-#define KEY_HP2 5
-#define KEY_HP0_SH1 6
+#define BUTTON_HP0_PIN 3
+#define BUTTON_HP1_PIN 4
+#define BUTTON_HP2_PIN 5
+#define BUTTON_HP0_SH1_PIN 6
 
-#define LED_RED_1 7
-#define LED_RED_2 8
-#define LED_YELLOW 9
-#define LED_GREEN 10
-#define LED_WHITE 11
+#define LED_RED_1_PIN 7
+#define LED_RED_2_PIN 8
+#define LED_YELLOW_PIN 9
+#define LED_GREEN_PIN 10
+#define LED_WHITE_PIN 11
 
-#define ON 0
-#define OFF 1
+#define LED_ON 0
+#define LED_OFF 1
 
 void hp0();
 
@@ -22,60 +36,55 @@ void initSerialForDebug() {
 }
 
 void initInput() {
-	pinMode(KEY_HP0, INPUT_PULLUP);
-	pinMode(KEY_HP1, INPUT_PULLUP);
-	pinMode(KEY_HP2, INPUT_PULLUP);
-	pinMode(KEY_HP0_SH1, INPUT_PULLUP);
+	pinMode(BUTTON_HP0_PIN, INPUT_PULLUP);
+	pinMode(BUTTON_HP1_PIN, INPUT_PULLUP);
+	pinMode(BUTTON_HP2_PIN, INPUT_PULLUP);
+	pinMode(BUTTON_HP0_SH1_PIN, INPUT_PULLUP);
 }
 
 void initOutput() {
-	pinMode(LED_RED_1, OUTPUT);
-	pinMode(LED_RED_2, OUTPUT);
-	pinMode(LED_YELLOW, OUTPUT);
-	pinMode(LED_GREEN, OUTPUT);
-	pinMode(LED_WHITE, OUTPUT);
-
-	digitalWrite(LED_RED_1, OFF);
-	digitalWrite(LED_RED_2, OFF);
-	digitalWrite(LED_YELLOW, OFF);
-	digitalWrite(LED_GREEN, OFF);
-	digitalWrite(LED_WHITE, OFF);
+	pinMode(LED_RED_1_PIN, OUTPUT);
+	pinMode(LED_RED_2_PIN, OUTPUT);
+	pinMode(LED_YELLOW_PIN, OUTPUT);
+	pinMode(LED_GREEN_PIN, OUTPUT);
+	pinMode(LED_WHITE_PIN, OUTPUT);
 }
 
 void setup() {
 	initSerialForDebug();
 	initInput();
 	initOutput();
+
 	hp0();
 }
 
-void off() {
-	digitalWrite(LED_RED_1, OFF);
-	digitalWrite(LED_RED_2, OFF);
-	digitalWrite(LED_YELLOW, OFF);
-	digitalWrite(LED_GREEN, OFF);
-	digitalWrite(LED_WHITE, OFF);
+void blank() {
+	digitalWrite(LED_RED_1_PIN, LED_OFF);
+	digitalWrite(LED_RED_2_PIN, LED_OFF);
+	digitalWrite(LED_YELLOW_PIN, LED_OFF);
+	digitalWrite(LED_GREEN_PIN, LED_OFF);
+	digitalWrite(LED_WHITE_PIN, LED_OFF);
 }
 
 void hp0() {
-	off();
-	digitalWrite(LED_RED_1, ON);
-	digitalWrite(LED_RED_2, ON);
+	blank();
+	digitalWrite(LED_RED_1_PIN, LED_ON);
+	digitalWrite(LED_RED_2_PIN, LED_ON);
 }
 
 void hp1() {
-	off();
-	digitalWrite(LED_GREEN, ON);
+	blank();
+	digitalWrite(LED_GREEN_PIN, LED_ON);
 }
 void hp2() {
-	off();
-	digitalWrite(LED_GREEN, ON);
-	digitalWrite(LED_YELLOW, ON);
+	blank();
+	digitalWrite(LED_GREEN_PIN, LED_ON);
+	digitalWrite(LED_YELLOW_PIN, LED_ON);
 }
 void hp0_sh1() {
-	off();
-	digitalWrite(LED_RED_2, ON);
-	digitalWrite(LED_WHITE, ON);
+	blank();
+	digitalWrite(LED_RED_2_PIN, LED_ON);
+	digitalWrite(LED_WHITE_PIN, LED_ON);
 }
 
 boolean keyIsPressed(uint8_t pin) {
@@ -87,10 +96,10 @@ boolean keyIsPressed(uint8_t pin) {
 }
 
 void loop() {
-	boolean _hp0 = keyIsPressed(KEY_HP0);
-	boolean _hp1 = keyIsPressed(KEY_HP1);
-	boolean _hp2 = keyIsPressed(KEY_HP2);
-	boolean _hp0_sh1 = keyIsPressed(KEY_HP0_SH1);
+	boolean _hp0 = keyIsPressed(BUTTON_HP0_PIN);
+	boolean _hp1 = keyIsPressed(BUTTON_HP1_PIN);
+	boolean _hp2 = keyIsPressed(BUTTON_HP2_PIN);
+	boolean _hp0_sh1 = keyIsPressed(BUTTON_HP0_SH1_PIN);
 
 	if (_hp0) {
 		hp0();
