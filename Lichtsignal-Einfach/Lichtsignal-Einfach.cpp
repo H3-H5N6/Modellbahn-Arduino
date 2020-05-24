@@ -14,7 +14,9 @@
 #define ON 0
 #define OFF 1
 
-void init_serial_for_debug() {
+void hp0();
+
+void initSerialForDebug() {
 	Serial.begin(115200);
 	Serial.println("Setup");
 }
@@ -41,10 +43,10 @@ void initOutput() {
 }
 
 void setup() {
-	init_serial_for_debug();
+	initSerialForDebug();
 	initInput();
 	initOutput();
-
+	hp0();
 }
 
 void off() {
@@ -78,12 +80,10 @@ void hp0_sh1() {
 
 boolean keyIsPressed(uint8_t pin) {
 	int input = digitalRead(pin);
-	Serial.println(input);
 	if (input == 0) {
 		return true;
 	}
 	return false;
-
 }
 
 void loop() {
