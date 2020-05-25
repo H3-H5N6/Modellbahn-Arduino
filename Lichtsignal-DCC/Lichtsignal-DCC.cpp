@@ -155,7 +155,7 @@ void notifyDccAccTurnoutOutput(uint16_t Addr, uint8_t Direction, uint8_t OutputP
 
 	if (Addr == 786) {
 		if (Direction == 0) {
-			signalAspect = HP0;
+			signalAspect = HP0_SH1;
 		}
 		if (Direction == 1) {
 			signalAspect = HP2;
