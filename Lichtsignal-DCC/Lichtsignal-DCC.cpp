@@ -26,22 +26,21 @@ NmraDcc Dcc;
 
 #define VERSION_ID 1
 
-struct CVPair {
-	uint16_t CV;
-	uint8_t Value;
-};
+#define CV_7_VERSION 7
+#define CV_8_MANUFACTURER 8
+#define CV_29_DECODER_CONFIGURATION 29
+
+#define CV_MAX 10
+
+#define DEFAULT_LONG_ADDRESS 785
+
 
 typedef enum {
 	HP0, HP1, HP2, HP0_SH1, UNDEF
 } SIGNAL_ASPECT;
 
 SIGNAL_ASPECT signalAspect = HP0;
-
-CVPair FactoryDefaultCVs[] = { { CV_ACCESSORY_DECODER_ADDRESS_LSB, 17 }, // 17 - 3
-		{ CV_ACCESSORY_DECODER_ADDRESS_MSB, 3 }, //256 * MSB + LSB : LSB: 0..63, MSB  0 .. 7 ((785))
-		};
-
-uint8_t FactoryDefaultCVIndex = sizeof(FactoryDefaultCVs) / sizeof(CVPair);
+SIGNAL_ASPECT lastSignalAspect = UNDEF;
 
 #define BUTTON_HP0_PIN 3
 #define BUTTON_HP1_PIN 4
@@ -73,10 +72,18 @@ void initSerialForDebug() {
 }
 
 void initInput() {
-	hp0_button.attachClick(hp0);
-	hp1_button.attachClick(hp1);
-	hp2_button.attachClick(hp2);
-	hp0_sh1_button.attachClick(hp0_sh1);
+	hp0_button.attachClick([](void) {
+		signalAspect = HP0;
+	});
+	hp1_button.attachClick([](void) {
+		signalAspect = HP1;
+	});
+	hp2_button.attachClick([](void) {
+		signalAspect = HP2;
+	});
+	hp0_sh1_button.attachClick([](void) {
+		signalAspect = HP0_SH1;
+	});
 }
 
 void initOutput() {
@@ -88,18 +95,68 @@ void initOutput() {
 }
 
 void initDcc() {
+	Serial.print("Initialisiere DCC ... ");
 	pinMode(DCC_ACC_PIN, OUTPUT);
 	Dcc.pin(DCC_INTERRUPT_NUMBER, DCC_IN_PIN, DCC_IN_ENABLE_PULLUP);
-	Dcc.init(MAN_ID_DIY, VERSION_ID, CV29_ACCESSORY_DECODER | CV29_OUTPUT_ADDRESS_MODE, 0);
+	Dcc.init(Dcc.getCV(CV_8_MANUFACTURER), Dcc.getCV(CV_8_MANUFACTURER), Dcc.getCV(CV_29_DECODER_CONFIGURATION), 0);
+	Serial.println("fertig");
+}
 
-	if (FactoryDefaultCVIndex && Dcc.isSetCVReady()) {
-		for (int i = 0; i < FactoryDefaultCVIndex; i++) {
-			Serial.print("CV:");
-			Serial.print(FactoryDefaultCVs[i].CV);
-			Serial.print("=>");
-			Serial.println(FactoryDefaultCVs[i].Value);
+uint8_t calcLSB(uint16_t longAddr) {
+	return longAddr % 256;
+}
 
-			Dcc.setCV(FactoryDefaultCVs[i].CV, FactoryDefaultCVs[i].Value);
+uint8_t calcMSB(uint16_t longAddr) {
+	return longAddr / 256;
+}
+
+/**
+ *
+ CV#1	Basisadresse Teil 1 Gruppe A
+ CV#3	Timer für Ausgänge 1,2 Gruppe A
+ CV#4	Timer für Ausgänge 3,4 Gruppe A
+ CV#5	Timer für Ausgänge 5,6 Gruppe A
+ CV#6	Timer für Ausgänge 7,8 Gruppe A
+ CV#7	Versionsnummer
+ CV#8	Herstelleridentnummer
+ CV#9	Basisadresse Teil 2 Gruppe A // 	Adress-Berechnung: CV#9 * 64 + Wert in CV#1
+
+ CV#17	POM Adresse, Teil 1
+ CV#18	POM Adresse, Teil 2
+ CV#28	RailCom-Einstellungen
+ CV#29	Konfigurationsregister
+ CV#35	Basisadresse Teil 1 Gruppe B
+ CV#36	Basisadresse Teil 2 Gruppe B
+
+
+ CV#57	Betriebsart Gruppe A
+ CV#58	Betriebsart Gruppe B
+ *
+ */
+void initDccConfig() {
+	 if (Dcc.getCV(CV_7_VERSION) != VERSION_ID || Dcc.getCV(CV_8_MANUFACTURER) != MAN_ID_DIY) {
+		Serial.print("Schreibe Default-Werte ...");
+		Dcc.setCV(CV_ACCESSORY_DECODER_ADDRESS_LSB, calcLSB(DEFAULT_LONG_ADDRESS));
+		Dcc.setCV(CV_7_VERSION, VERSION_ID);
+		Dcc.setCV(CV_8_MANUFACTURER, MAN_ID_DIY);
+		Dcc.setCV(CV_ACCESSORY_DECODER_ADDRESS_MSB, calcMSB(DEFAULT_LONG_ADDRESS));
+		Dcc.setCV(CV_29_DECODER_CONFIGURATION, CV29_ACCESSORY_DECODER | CV29_OUTPUT_ADDRESS_MODE);
+		Serial.println("fertig");
+	} else {
+		Serial.println("Keine Änderungen an den CV");
+	}
+	for (int i = 1; i < 30; i++) {
+		switch (i) {
+		case CV_7_VERSION:
+		case CV_8_MANUFACTURER:
+		case CV_ACCESSORY_DECODER_ADDRESS_LSB:
+		case CV_ACCESSORY_DECODER_ADDRESS_MSB:
+		case CV_29_DECODER_CONFIGURATION:
+			Serial.print("CV: ");
+			Serial.print(i);
+			Serial.print("[");
+			Serial.print(Dcc.getCV(i));
+			Serial.println("]");
 		}
 	}
 }
@@ -126,7 +183,9 @@ void notifyDccAccTurnoutBoard(uint16_t BoardAddr, uint8_t OutputPair, uint8_t Di
 
 // This function is called whenever a normal DCC Turnout Packet is received and we're in Output Addressing Mode
 void notifyDccAccTurnoutOutput(uint16_t Addr, uint8_t Direction, uint8_t OutputPower) {
-
+	if (OutputPower == 0) {
+		return;
+	}
 	uint16_t addr2 = Dcc.getAddr();
 	Serial.print("Ddc.getAddr: ");
 	Serial.println(addr2);
@@ -144,7 +203,10 @@ void notifyDccAccTurnoutOutput(uint16_t Addr, uint8_t Direction, uint8_t OutputP
 	Serial.print(']');
 	Serial.println();
 
-	if (Addr == 785) {
+
+
+
+	if (Addr == Dcc.getAddr()) {
 		if (Direction == 0) {
 			signalAspect = HP0;
 		}
@@ -153,7 +215,7 @@ void notifyDccAccTurnoutOutput(uint16_t Addr, uint8_t Direction, uint8_t OutputP
 		}
 	}
 
-	if (Addr == 786) {
+	if (Addr == Dcc.getAddr() + 1) {
 		if (Direction == 0) {
 			signalAspect = HP0_SH1;
 		}
@@ -176,7 +238,7 @@ void setup() {
 	initSerialForDebug();
 	initInput();
 	initOutput();
-
+	initDccConfig();
 	initDcc();
 
 	hp0();
@@ -226,22 +288,25 @@ void loop() {
 	hp0_sh1_button.tick();
 	Dcc.process();
 
-	switch (signalAspect) {
-	case HP0:
-		hp0();
-		signalAspect=UNDEF;
-		break;
-	case HP1:
-		hp1();
-		signalAspect=UNDEF;
-		break;
-	case HP2:
-		hp2();
-		signalAspect=UNDEF;
-		break;
-	case HP0_SH1:
-		hp0_sh1();
-		signalAspect=UNDEF;
-		break;
+	if (lastSignalAspect != signalAspect) {
+		switch (signalAspect) {
+		case HP0:
+			hp0();
+			signalAspect = UNDEF;
+			break;
+		case HP1:
+			hp1();
+			signalAspect = UNDEF;
+			break;
+		case HP2:
+			hp2();
+			signalAspect = UNDEF;
+			break;
+		case HP0_SH1:
+			hp0_sh1();
+			signalAspect = UNDEF;
+			break;
+		}
+		lastSignalAspect = signalAspect;
 	}
 }
